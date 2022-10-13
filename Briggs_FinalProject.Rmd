@@ -1,0 +1,385 @@
+---
+title: "Final Project"
+output: pdf_document
+author: "Emily Briggs"
+fontsize: 12pt
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(comment = NA)
+```
+
+## Goals of the Project
+
+I will be using statistical functions in R to explore and analyze data 
+concerning Boston Housing. Although there are 13 total predictors in the 
+dataset, my main goal is to look at a select five variables from the set and
+analyze which of those may be significant in influencing the median values 
+of homes in the Boston area. The variables I will be looking at are crim, 
+nox, ptratio, b, and lstat. These variables are of particular interest to me 
+because they are social factors rather than economic, which I suppose may have
+an interesting effect on median house values. I am aiming to develop 
+a functional and useful multiple linear regression model for the data which 
+only includes significant predictors and can effectively predict the median 
+values given inputs of predictor values. 
+
+## Description of Data
+
+The data I will be looking into is the Boston Housing Data from the mlbench 
+package, which can be found [here.](https://rdrr.io/cran/mlbench/man/BostonHousing.html)
+It contains housing data for 506 census tracts of Boston from the 1970 census. 
+The original data are 506 observations on 14 variables, with 'medv' being the 
+target variable. 
+
+The dataset contains the following variables:
+
+* crim:	per capita crime rate by town
+* zn:	proportion of residential land zoned for lots over 25,000 sq.ft
+* indus	proportion of non-retail business acres per town
+* chas:	Charles River dummy variable (= 1 if tract bounds river; 0 otherwise)
+* nox:	nitric oxides concentration (parts per 10 million)
+* rm:	average number of rooms per dwelling
+* age:	proportion of owner-occupied units built prior to 1940
+* dis: weighted distances to five Boston employment centres
+* rad:	index of accessibility to radial highways
+* tax:	full-value property-tax rate per USD 10,000
+* ptratio:	pupil-teacher ratio by town
+* b:	1000(B - 0.63)^2 where B is the proportion of blacks by town
+* lstat:	percentage of lower status of the population
+* medv:	median value of owner-occupied homes in USD 1000's
+
+```{r}
+#Downloading data and checking the structure
+library(mlbench)
+library(car)
+data(BostonHousing)
+head(BostonHousing)
+str(BostonHousing)
+#For this analysis, I only want to look at crim, nox, ptratio, b, and lstat
+bos <- as.data.frame(BostonHousing[, c('crim', 'nox', 'ptratio', 'b', 'lstat', 
+                                       'medv')])
+str(bos)
+
+#Getting a five number summary for each variable in the dataset
+summary(bos)
+
+#Looking at the frequency distributions of each variable 
+par(mfrow = c(2, 3))
+hist(bos$crim, col = "springgreen", main = "Boston Crime Rates 1970", xlab = 
+       "Per Capita Crime Rate by Town", cex.main = 0.7, cex.lab = 0.6, breaks = 
+       20)
+hist(bos$nox, col = "peru", main = "Boston Nitric Oxide Concentrations 1970", 
+     xlab = "NOx Concentrations", cex.main = 0.7, cex.lab = 0.6, breaks = 20)
+hist(bos$ptratio, col = "gold3", main = "Boston Pupil-Teacher Ratio", xlab = 
+       "Pupil-Teacher Ratio by Town", cex.main = 0.7, cex.lab = 0.6, breaks =
+       20)
+hist(bos$b, col = "mistyrose", main = "Boston Proportion of Black Residents", 
+     xlab = "Proporiton of Blacks by Town", cex.main = 0.7, cex.lab = 0.6, 
+     breaks = 20)
+hist(bos$lstat, col = "mintcream", main = "Boston Percantage of 
+     Lower Status", xlab = "Percentage of the Lower Status of the Population", 
+     cex.main = 0.7, cex.lab = 0.6, breaks = 20)
+hist(bos$medv, col = "orchid1", main = "Boston Median Value of Homes",
+     xlab = "median value of owner-occupied homes (in USD 1000's)", 
+     cex.main = 0.7, cex.lab = 0.6, breaks = 20)
+
+
+```
+Looking at the histograms for each variable, we can see that most of them are 
+not approximately normal. The distributions for nox, lstat, and the dependent 
+variable medv are fairly right skewed, the distribution for ptratio is left 
+skewed. The distributions for crim and b are highly skewed. This might explain 
+some of the abnormalites we see when checking assumptions later in the analysis, 
+specifically when checking the normality of the residuals. 
+
+
+```{r}
+#Examine the relationships two at a time (bivariate correlations)
+cor(bos)
+library(car)
+scatterplotMatrix(bos, main = "Scatter Plot Matrix")
+```
+Note, that lstat and medv have relatively strong (negative) correlation. 
+
+```{r}
+#Now, I will fit a multiple linear regression model with all five predictors
+bos_fit <- lm(medv ~ crim + nox + ptratio + b + lstat, data = bos)
+(summ_fit1 <- summary(bos_fit))
+```
+From the summary, we see that the value of the F statistic is 156.5 and the p-
+value is less than 2e-16. We have strong evidence to support that not all 
+coefficients are 0. In particular, we can see from the summary that ptratio, b,
+and lstat may be of significance to the model (from significance codes). We can
+see from the p values that ptratio and lstat are significant at the .05 
+significance level (and lower), and b is significant at the 0.1 significance
+level. 
+
+```{r}
+#Exploring R squared values
+summ_fit1$r.squared
+summ_fit1$adj.r.squared
+```
+R squared = .6101187, which suggests that 61.01187% of the variability in the 
+data can be explained by our model. 
+Adjusted r squared = .606, which suggests that 60.6% of the variability in the
+data can be explained by our model after adjusting with a penalty for more
+complex models.
+
+```{r}
+#Analyzing coefficients 
+summ_fit1$coefficients
+```
+
+As mentioned above, only ptratio and lstat are significant at the 5% level. 
+The regression coefficients indicate the expected increase in the dependent 
+variable (median value) for a unit change in a predictor variable, holding all 
+other predictor variables constant. For example, the regression coefficient for
+ptratio is -1.123, so an increase of 1% in pupil-teacher ratio is associated 
+with a 1.123% decrease in the murder rate on average, controlling for
+crime rate, nitric oxides concentration, proportion of blacks, and lower status. 
+The coefficient is significantly different from zero, with p-value < .0001. 
+
+```{r}
+#Obtaining confidence intervals for each coefficient 
+confint(bos_fit)
+```
+
+Interpretation: For example, [-1.377, -0.868] is a 95% confidence interval for 
+the true change in median house value for a 1% change in pupil-teacher ratio. 
+
+
+As we have seen above, only three predictors (ptratio, lstat, and b) are 
+significant to the regression model, and b is only significant at the 0.1 level. 
+In hopes of finding the best model, I will test to see if models containing
+less predictors are as adequate at predicting as the full model. 
+```{r}
+#Creating new model with three predictors
+bos_fit3 <- lm(medv ~ ptratio + b + lstat, data = bos)
+#Using anova()
+anova(bos_fit3, bos_fit)
+#Using Akaike Information Criterion (AIC)
+AIC(bos_fit, bos_fit3)
+
+#Creating new model with two predictors (now excluding b)
+bos_fit2 <- lm(medv ~ ptratio, lstat, data = bos)
+#Using anova()
+anova(bos_fit2, bos_fit3)
+#Using AIC
+AIC(bos_fit3, bos_fit2)
+
+#Verifying with adjusted r-squared 
+(summ_fit3 <- summary(bos_fit3))
+```
+After running anova and AIC tests for the model with three predictors versus 
+the full model, we can see that the reduced model predicts just as well as the 
+full model, and it is justified to drop crim and nox. The anova test yields a 
+high p value (.8393), which tells us the test is insignificant and crim and nox 
+do not add to linear prediction above and beyond the other three variables. 
+Since the reduced model has a smaller AIC, this result is further verified 
+because models with smaller AIC values-indicating adequate fit with fewer 
+parameters-are preferred. However, dropping b from the set of predictors is not 
+advisable. After creating a model containing only ptratio and lstat and running
+the same tests, we see that it is useful to keep b in the model. The anova test 
+is significant and the AIC for the model with three predictors is lower than 
+that of the model with only two. In conclusion, the best model for our data is 
+the one containing three predictors - ptratio, b, and lstat. This is verified 
+because the adjusted r squared value for the model with three predictors is 
+slightly higher than the value for the full model. We will use this model
+from now on. 
+
+Now that we have a good model, we can check assumptions. 
+```{r}
+#Normality of residuals (Shapiro-Wilk and qqPlot)
+shapiro.test(summ_fit3$residuals)
+qqPlot(summ_fit3$residuals)
+```
+
+This output shows us that the normality assumption is not validated. The shapiro
+wilks test yields a very small p value, telling us we can reject the null 
+hypothesis that the residuals have a normal distribution. The qqplot shows a 
+highly skewed distribution. We can try to perform some corrective measures. 
+
+```{r}
+summary(powerTransform(bos$medv))
+```
+This summary tells us the hypothesis that lambda = 1 can be rejected (very small
+p value), so there is sufficient evidence that a transformation on the response 
+variable could be useful. We can try replacing medv with medv^0.2166^.
+
+```{r}
+bos$mod_medv <- (bos$medv ^ .2166)
+new_fit1 <- lm((mod_medv) ~ ptratio + b + lstat, data = bos)
+summ_newfit <-  summary(new_fit1)
+shapiro.test(summ_newfit$residuals)
+qqPlot(summ_newfit$residuals)
+```
+
+This transformation increases the p-value slightly, but we still cannot validate 
+the assumption of normality. We will move on for now, but keep this in mind.
+
+```{r}
+#Equal variances assumption
+z <- rstudent(new_fit1)
+par(mfrow = c(1,4))
+plot(bos$ptratio, z)
+abline(h=0,col=2,lwd=2)
+abline(h=2, col=3,lwd=2, lty=2)
+abline(h=-2,col=3,lwd=2, lty=2)
+plot(bos$b, z)
+abline(h=0,col=2,lwd=2)
+abline(h=2, col=3,lwd=2, lty=2)
+abline(h=-2,col=3,lwd=2, lty=2)
+plot(bos$lstat, z)
+abline(h=0,col=2,lwd=2)
+abline(h=2, col=3,lwd=2, lty=2)
+abline(h=-2,col=3,lwd=2, lty=2)
+plot(new_fit1$fitted.values, z)
+abline(h=0,col=2,lwd=2)
+abline(h=2, col=3,lwd=2, lty=2)
+abline(h=-2,col=3,lwd=2, lty=2)
+```
+
+None of the plots really show any trend in the studentized residuals (although
+the residuals for b are skewed). They are for the most part centered around 0., 
+and most points fall between -2 and 2. 
+
+```{r}
+#Running a test for outliers
+outlierTest(new_fit1)
+```
+```{r}
+#Observing influential points
+cutoff <- 4/(nrow(bos)-length(new_fit1$coefficients))
+plot(new_fit1, which=4, cook.levels=cutoff)
+abline(h=cutoff, lty=2, col="red")
+
+influencePlot(new_fit1, main="Influence Plot")
+mtext("*Circle size
+is proportial to Cook's Distance", side =4)
+```
+
+
+```{r}
+#Checking linearity assumption
+crPlots(new_fit1, cex.lab =0.6)
+boxTidwell(mod_medv ~ ptratio + b + lstat, data = bos)
+```
+
+Although the crPlots appear fairly linear, the boxTidwell test shows us that a 
+transformation on the ptratio and lstat predictors could be useful (p-values = 
+.08406 and 4.146e-15). We can try using  ptratio^-4.32613^ and lstat^0.13661^. 
+
+```{r}
+#Transforming predictor variables
+bos$mod_pt <- (bos$ptratio ^ -4.32613)
+bos$mod_lstat <- (bos$lstat ^ .13661)
+new_fit2 <- lm(mod_medv ~ mod_pt + b + mod_lstat, data = bos)
+(summ_newfit2 <- summary(new_fit2))
+crPlots(new_fit2, cex.lab = 0.6)
+```
+
+```{r}
+#Checking homoscedasticity
+ncvTest(new_fit2)
+spreadLevelPlot(new_fit2)
+```
+
+The ncv Test yields a low p value (.010627), which indicates heteroscedasticity 
+may be present. This is not ideal. The spread level plot is somewhat parabolic, 
+which is also not ideal as it indicates the homoscedasticity assumption may not 
+be validated. The suggested power transformation is close to 1, and does not have
+any real effect on improving the model, so we will ignore it. For now, we will 
+acknowledge that many of our assumptions are not validated, and keep this in mind 
+when using the linear model. 
+
+```{r}
+#Checking for multicollinearity
+library(car)
+vif(new_fit2)
+```
+In this case, we don't see any evidence for multicollinearity, which is good. 
+We know this because none of the VIF's are higher than 5. The square root of the
+VIF indicates the degree to which the confidence interval for that variable’s 
+regression parameter is expanded relative to a model with uncorrelated predictors.
+
+Lastly, we can check if adding an interaction term will improve our model. I 
+will check interactions between all combinations of the three predictors and see 
+if adding the term significantly increases the adjusted R-squared value from the
+model without interaction terms. 
+
+```{r}
+#Obtaining adjusted R-squared for model with no interaction
+(summ_newfit2$adj.r.squared)
+
+#Adding interaction between ptratio and b
+int1 <- lm(mod_medv~ mod_pt + b + mod_lstat + mod_pt:b, data = bos)
+summ_int1 <- summary(int1)
+(summ_int1$adj.r.squared)
+
+#Adding interaction between ptratio and lstat
+int2 <- lm(mod_medv~ mod_pt + b + mod_lstat + mod_pt:mod_lstat, data = bos)
+summ_int2 <- summary(int2)
+(summ_int2$adj.r.squared)
+
+#Adding interaction between b and lstat
+int3 <- lm(mod_medv~ mod_pt + b + mod_lstat + b:mod_lstat, data = bos)
+summ_int3 <- summary(int3)
+(summ_int3$adj.r.squared)
+```
+It appears no interaction is present, and it is unnecessary to include an 
+interaction term in our model. Adjusted r-squared does not significantly 
+increase for the addition of any interaction term, and the summaries show that 
+the interaction term in all the new models is never significant. 
+
+## Conclusion
+
+After running multiple tests to observe, analyze, and try to polish our model, 
+we are left with the multiple linear regression model containing three 
+predictors- ptratio, b, and lstat- with power transformations on ptratio and 
+lstat, as well as the response variable medv. The final model reads:  
+$medv^{.2166} = 3.337+ 11370*ptratio^{-4.32613}+.0002132*b-1.098*lstat^{.13661} + error$  
+This is the most predictive model developed with the tools I used, however it is
+important to acknowledge that the assumptions for normality, linearity, and 
+homoscedasticity were not validated by the tests I ran. Overall, it is still 
+an adequate predictive model for median Boston house values given pupil-teacher 
+ratio, proportion of blacks, and lower status as independent variables. 
+
+
+We can test the model's predictive ability:
+```{r}
+#Dividing data into a training sample (70%) and a validation sample (30%)
+set.seed(1234)
+train <- sample(nrow(bos), 0.7*nrow(bos))
+bos.train <- bos[train,]
+bos.validate <- bos[-train,]
+
+#Using the training set data to fit a multiple linear regression model 
+fit_train <- lm(mod_medv ~ mod_pt + b + mod_lstat, data = bos.train)
+summary(fit_train)
+
+#predicting the target variable
+predictions <- predict(fit_train, bos.validate)
+
+
+# computing model performance metrics 
+library('caret')
+data.frame(R2 = R2(predictions, bos.validate$mod_medv), 
+           RMSE = RMSE(predictions, bos.validate$mod_medv), 
+           MAE = MAE(predictions, bos.validate$mod_medv))
+```
+The model seems to be effective in making predictions of median house values. 
+RMSE, or root mean mean-squared error, explains on an average how much of the 
+predicted value will be from the actual value. Based on RMSE = .0751, we can 
+conclude that on an average predicted value will be off by .0751 from the 
+actual value, which is very low. MAE, or mean absolute error, measures the 
+accuracy of the predicted values, and is also very low. We can conclude that 
+our model is remarkably accurate. 
+
+(*Aside:* Because the notes did not have too much information on supervised 
+learning for linear regression, I followed an article from Rishu Mishra on 
+GeeksforGeeks which can be found [here.](https://www.geeksforgeeks.org/the-validation-set-approach-in-r-programming/)
+I also used a few data science functions from the caret package, which can be
+found [here.)](https://topepo.github.io/caret/)
+
